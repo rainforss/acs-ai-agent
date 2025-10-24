@@ -164,7 +164,6 @@ export class WebSocketClient<U, D> implements AsyncIterable<D> {
       throw this.error;
     }
     const serialized = this.serialize(message);
-    console.log("Serialized message", serialized);
     return sendMessage(this.socket, serialized);
   }
 

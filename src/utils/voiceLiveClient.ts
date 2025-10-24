@@ -8,8 +8,10 @@ import {
 import {
   ValidateProtocolMessage,
   validationError,
+  validationSuccess,
   WebSocketClient,
 } from "./websocket-client";
+import { isServerMessageType } from "./model-utils";
 
 export class VoiceLiveClient {
   public requestId: string | undefined;
@@ -26,7 +28,9 @@ export class VoiceLiveClient {
         }
         try {
           const data = JSON.parse(event.data as string);
-
+          if (isServerMessageType(data)) {
+            return validationSuccess(data);
+          }
           return validationError<ServerMessageType>(
             new Error("Invalid message type")
           );
@@ -53,8 +57,12 @@ export class VoiceLiveClient {
   }
 
   constructor(uri: URL, apiKey: string) {
-    console.log(uri, apiKey);
-    this.client = this.getWebsocket({ uri, headers: { "api-key": apiKey } });
+    this.client = this.getWebsocket({
+      uri,
+      headers: {
+        "api-key": apiKey,
+      },
+    });
   }
 
   async *messages(): AsyncIterable<ServerMessageType> {
@@ -64,11 +72,7 @@ export class VoiceLiveClient {
   }
 
   async send(message: UserMessageType): Promise<void> {
-    try {
-      await this.client.send(message);
-    } catch (error) {
-      console.log(error);
-    }
+    await this.client.send(message);
   }
 
   async close(): Promise<void> {

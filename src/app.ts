@@ -6,6 +6,8 @@ import {
   AnswerCallOptions,
   AnswerCallResult,
   MediaStreamingOptions,
+  CallInvite,
+  CreateCallOptions,
 } from "@azure/communication-call-automation";
 
 import { v4 as uuidv4 } from "uuid";
@@ -31,6 +33,32 @@ async function createAcsClient() {
   acsClient = new CallAutomationClient(connectionString);
   console.log("Initialized ACS Client.");
 }
+
+async function createOutboundCall(callee, mediaStreamingOptions) {
+  const callInvite: CallInvite = {
+    targetParticipant: callee,
+    sourceCallIdNumber: {
+      phoneNumber: process.env.ACS_RESOURCE_PHONE_NUMBER || "",
+    },
+  };
+
+  const options: CreateCallOptions = {
+    callIntelligenceOptions: {
+      cognitiveServicesEndpoint: process.env.COGNITIVE_SERVICES_ENDPOINT,
+    },
+    mediaStreamingOptions,
+  };
+  console.log("Placing outbound call...");
+  acsClient.createCall(
+    callInvite,
+    process.env.CALLBACK_URI + "/api/callbacks",
+    options
+  );
+}
+
+app.post("/api/outboundCall", async (req: any, res: any) => {
+  const { callee } = req.body;
+});
 
 app.post("/api/incomingCall", async (req: any, res: any) => {
   const event = req.body[0];
@@ -145,7 +173,9 @@ const wss = new WebSocketServer({ server });
 wss.on("connection", async (ws: WebSocket) => {
   console.log("Client connected");
   await initWebsocket(ws);
-  await startConversation();
+  await startConversation(
+    answerCallResult.callConnectionProperties.callConnectionId
+  );
   ws.on("message", async (packetData: ArrayBuffer) => {
     try {
       if (ws.readyState === WebSocket.OPEN) {

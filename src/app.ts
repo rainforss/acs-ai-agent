@@ -51,7 +51,9 @@ async function createOutboundCall(callee, mediaStreamingOptions) {
   console.log("Placing outbound call...");
   acsClient.createCall(
     callInvite,
-    process.env.CALLBACK_URI + "/api/callbacks",
+    process.env.NODE_ENV === "production"
+      ? process.env.CALLBACK_URI_PROD
+      : process.env.CALLBACK_URI + "/api/callbacks",
     options
   );
 }
@@ -74,13 +76,20 @@ app.post("/api/incomingCall", async (req: any, res: any) => {
     }
 
     callerId = eventData.from.rawId;
+
     const uuid = uuidv4();
-    const callbackUri = `${process.env.CALLBACK_URI}/api/callbacks/${uuid}?callerId=${callerId}`;
+    const callbackUri = `${
+      process.env.NODE_ENV === "production"
+        ? process.env.CALLBACK_URI_PROD
+        : process.env.CALLBACK_URI
+    }/api/callbacks/${uuid}?callerId=${callerId}`;
+    console.log(callbackUri);
     const incomingCallContext = eventData.incomingCallContext;
-    const websocketUrl = process.env.CALLBACK_URI!.replace(
-      /^https:\/\//,
-      "wss://"
-    );
+    const websocketUrl = (
+      process.env.NODE_ENV === "production"
+        ? process.env.CALLBACK_URI_PROD
+        : process.env.CALLBACK_URI
+    ).replace(/^https:\/\//, "wss://");
     const mediaStreamingOptions: MediaStreamingOptions = {
       transportUrl: websocketUrl,
       transportType: "websocket",
@@ -117,6 +126,9 @@ app.post("/api/callbacks/:contextId", async (req: any, res: any) => {
     `Received Event:-> ${event.type}, Correlation Id:-> ${eventData.correlationId}, CallConnectionId:-> ${callConnectionId}`
   );
   if (event.type === "Microsoft.Communication.CallConnected") {
+    if (eventData.operationContext === "stopMediaStreaming") {
+      return console.log("Media Streaming Stopped.");
+    }
     const callConnectionProperties = await acsClient
       .getCallConnection(callConnectionId)
       .getCallConnectionProperties();
@@ -155,6 +167,11 @@ app.post("/api/callbacks/:contextId", async (req: any, res: any) => {
     );
     console.log(`Message:->${eventData.resultInformation.message}`);
   } else if (event.type === "Microsoft.Communication.CallDisconnected") {
+    console.log(`Call Disconnected:->${eventData.resultInformation.message} `);
+  } else if (event.type === "Microsoft.Communication.AddParticipantFailed") {
+    console.log(
+      `Add Participant Failed:->${eventData.resultInformation.message} `
+    );
   }
 });
 
@@ -174,7 +191,8 @@ wss.on("connection", async (ws: WebSocket) => {
   console.log("Client connected");
   await initWebsocket(ws);
   await startConversation(
-    answerCallResult.callConnectionProperties.callConnectionId
+    answerCallResult.callConnectionProperties.callConnectionId,
+    acsClient
   );
   ws.on("message", async (packetData: ArrayBuffer) => {
     try {

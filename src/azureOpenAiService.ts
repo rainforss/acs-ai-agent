@@ -2,6 +2,7 @@ import WebSocket from "ws";
 import { v4 as uuidv4 } from "uuid";
 import { config } from "dotenv";
 import {
+  CallAutomationClient,
   createOutboundAudioData,
   createOutboundStopAudioData,
   OutStreamingData,
@@ -15,6 +16,7 @@ import {
 } from "./utils/models";
 import https from "https";
 import fetch from "node-fetch";
+import { PhoneNumberIdentifier } from "@azure/communication-common";
 config();
 
 let ws: WebSocket;
@@ -39,14 +41,23 @@ export async function sendAudioToExternalAi(data: string) {
   }
 }
 
-export async function startConversation(conversationId: string) {
-  await startRealtime(aiFoundryVoiceLiveEndpoint, aiFoundryKey, conversationId);
+export async function startConversation(
+  conversationId: string,
+  acsClient: CallAutomationClient
+) {
+  await startRealtime(
+    aiFoundryVoiceLiveEndpoint,
+    aiFoundryKey,
+    conversationId,
+    acsClient
+  );
 }
 
 async function startRealtime(
   endpoint: string,
   apiKey: string,
-  conversationId: string
+  conversationId: string,
+  acsClient: CallAutomationClient
 ) {
   try {
     realtimeStreaming = new VoiceLiveClient(
@@ -60,7 +71,7 @@ async function startRealtime(
     await realtimeStreaming.send(createConfigMessage());
     await realtimeStreaming.send(
       createResponseMessage(
-        "You are a friendly and knowledgeable voice assistant representing Lululemon, trained to help customers find the perfect apparel and gear for their lifestyle. Your tone is warm, confident, and conversational—like a helpful store associate who knows the brand inside and out."
+        "You are Gateway Mechanical Service's Virtual Assistant. Your job is to provide fast, accurate, and friendly answers to common member questions based on publicly available information on Gateway Mechanical Service's website. You are talking to a customer named Jake, greet the customer in English and ask if the customer needs any help."
       )
     );
   } catch (error) {
@@ -69,7 +80,7 @@ async function startRealtime(
 
   setImmediate(async () => {
     try {
-      await handleRealtimeMessages(conversationId);
+      await handleRealtimeMessages(conversationId, acsClient);
     } catch (error) {
       console.error("Error handling real-time messages:", error);
     }
@@ -123,9 +134,9 @@ function createConfigMessage(): SessionUpdateMessage {
   const functions = [
     {
       type: "function",
-      name: "schedule_callback",
+      name: "book_appointment",
       description:
-        "Get a preferred product expert callback date and time in a specific time zone for the user",
+        "Book a branch appointment with date and time in a specific time zone for the user",
       parameters: {
         type: "object",
         properties: {
@@ -133,7 +144,7 @@ function createConfigMessage(): SessionUpdateMessage {
             type: "string",
             format: "date-time",
             description:
-              "The preferred date and time for product expert callback, in ISO 8601 UTC format (e.g., 2025-10-26T09:00:00Z) after time zone conversion.",
+              "The preferred date and time for appointment, in ISO 8601 UTC format (e.g., 2025-10-26T09:00:00Z) after converting from user's time zone.",
           },
           mobilePhone: {
             type: "string",
@@ -147,29 +158,59 @@ function createConfigMessage(): SessionUpdateMessage {
     },
     {
       type: "function",
-      name: "send_recipe",
-      description: "Send a link to the recipe.",
+      name: "send_summary",
+      description:
+        "Summarize the information provided to the customer in customer's preferred language and send the summary to customer's preferred email address. Always repeat the email address for customer to confirm before performing this action.",
       parameters: {
         type: "object",
-        properties: { url: { type: "string" } },
-        required: ["url"],
+        properties: {
+          emailAddress: {
+            type: "string",
+            pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$",
+            description:
+              "The preferred email address of customer, always repeat the collected email address and proceed only if customer confirms it is correct.",
+          },
+          agentSummary: {
+            type: "string",
+            description:
+              "Summarized conversation or instruction, translated to client's preferred language. Always ask client to specified the preferred language",
+          },
+        },
+        required: ["emailAddress", "agentSummary"],
       },
     },
+    // {
+    //   type: "function",
+    //   name: "escalate",
+    //   description:
+    //     "Escalate and transfer the call to a customer service representative if customer requests to speak to someone or if customer is clearly getting frustrated.",
+    //   parameters: {},
+    // },
   ];
   let configMessage: any = {
     instructions: `
-    You are a friendly and knowledgeable voice assistant representing Lululemon, trained to help customers find the perfect apparel and gear for their lifestyle. Your tone is warm, confident, and conversational—like a helpful store associate who knows the brand inside and out.
-Your responsibilities include:
+    You are a helpful and professional virtual assistant for Gateway Mechanical Services, a trusted provider of HVAC, refrigeration, and mechanical services across Western Canada. Your primary responsibilities are:
 
-Understanding the customer’s needs by asking relevant questions about their activity (e.g., yoga, running, training, travel), style preferences, climate, and fit.
-Recommending specific Lululemon products based on their goals, including tops, bottoms, outerwear, accessories, and footwear.
-Explaining product features clearly and concisely, such as fabric technologies (e.g., Nulu, Luxtreme, Warpstreme), fit types (e.g., slim, relaxed, oversized), and performance benefits.
-Providing sizing guidance based on body type, fit preference, and product cut.
-Highlighting new arrivals, seasonal collections, and limited editions when relevant.
-Helping clients schedule callback from a Lululemon product expert if clients want to get more details before making a purchase.
-Maintaining a natural, engaging tone that reflects Lululemon’s brand values: wellness, innovation, and inclusivity.
+Booking Appointments: Help customers schedule service appointments for maintenance, repairs, or consultations. Collect relevant details such as:
 
-Always aim to make the customer feel confident, supported, and excited about their choices. Keep responses short and clear, and offer to repeat or clarify when needed.
+Customer name and contact information
+Service location
+Type of service needed (e.g., HVAC repair, refrigeration maintenance)
+Preferred date and time
+
+
+Answering Questions: Provide clear, friendly, and accurate responses to customer inquiries about:
+
+Services offered
+Service areas and coverage
+Emergency support availability
+Pricing estimates (if available)
+Warranty and service guarantees
+
+
+Escalation and Handoff: If a question is too complex or requires human intervention, offer to escalate the request to a live representative or direct the customer to the appropriate contact channel.
+
+Maintain a courteous and professional tone at all times. Always confirm details with the customer and offer additional help before ending the conversation. You should avoid emotional expressions like laughter. You should speak slowly and clearly.
     `,
     type: "session.update",
     session: {
@@ -188,7 +229,7 @@ Always aim to make the customer feel confident, supported, and excited about the
       input_audio_noise_reduction: { type: "azure_deep_noise_suppression" },
       input_audio_echo_cancellation: { type: "server_echo_cancellation" },
       voice: {
-        name: "zh-CN-Yunfan:DragonHDLatestNeural",
+        name: "en-US-SamuelMultilingualNeural",
         type: "azure-standard",
         temperature: 0.8,
       },
@@ -199,7 +240,10 @@ Always aim to make the customer feel confident, supported, and excited about the
   return configMessage;
 }
 
-export async function handleRealtimeMessages(conversationId: string) {
+export async function handleRealtimeMessages(
+  conversationId: string,
+  acsClient?: CallAutomationClient
+) {
   for await (const message of realtimeStreaming.messages()) {
     switch (message.type) {
       case "session.created":
@@ -227,7 +271,65 @@ export async function handleRealtimeMessages(conversationId: string) {
       case "response.function_call_arguments.done":
         console.log("Function arguments: ", message.arguments);
 
-        if (message.name === "schedule_callback") {
+        if (message.name === "escalate") {
+          const sourceCallerIdNumber = (
+            await acsClient.getCallConnection(conversationId).listParticipants()
+          ).values;
+          console.log(sourceCallerIdNumber);
+          await acsClient
+            .getCallConnection(conversationId)
+            .getCallMedia()
+            .stopMediaStreaming({ operationContext: "stopMediaStreaming" });
+          try {
+            await acsClient.getCallConnection(conversationId).addParticipant({
+              targetParticipant: { phoneNumber: "+14032124840" },
+              sourceDisplayName: "Jake",
+              sourceCallIdNumber: {
+                phoneNumber: "+14388140297",
+              },
+            });
+          } catch (e) {
+            console.log(e, e.message);
+          }
+        }
+
+        if (message.name === "send_summary") {
+          const httpsAgent = new https.Agent({
+            rejectUnauthorized: false,
+          });
+          const response = await fetch(
+            "https://03f8d831c688efbd8b1974fd770e4c.f4.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/bcec5c21bc0d4795858e09b90a94d40b/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=gNN65YHpNEZ78JXT47xhOVGayDr4A1Pt9attnfRZUy4",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                ...JSON.parse(message.arguments),
+                function: "send_summary",
+              }),
+              agent: httpsAgent,
+            }
+          );
+          const data = await response.json();
+          console.log(data);
+          if (data.success) {
+            await realtimeStreaming.send(
+              createConversationItem(
+                "Summary has been sent to your email, is there anything else I can help you with?",
+                conversationId,
+                "assistant"
+              )
+            );
+            await realtimeStreaming.send(
+              createResponseMessage(
+                "Respond to the user that summary has been sent successfully. Be concise and friendly, ask the user if there is anything else that you can help with."
+              )
+            );
+          }
+        }
+
+        if (message.name === "book_appointment") {
           // await realtimeStreaming.send(
           //   createFunctionOutput("Booking the appointment now.", conversationId)
           // );

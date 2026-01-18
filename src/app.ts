@@ -15,6 +15,7 @@ import { v4 as uuidv4 } from "uuid";
 import WebSocket, { WebSocketServer } from "ws";
 import { startConversation, initWebsocket } from "./azureOpenAiService";
 import { processWebsocketMessageAsync } from "./mediaStreamingHandler";
+import { PhoneNumberIdentifier } from "@azure/communication-common";
 
 config();
 
@@ -36,8 +37,11 @@ async function createAcsClient() {
 
 async function createOutboundCall(callee, mediaStreamingOptions) {
   try {
+    const targetParticipant: PhoneNumberIdentifier = {
+      phoneNumber: callee,
+    };
     const callInvite: CallInvite = {
-      targetParticipant: callee,
+      targetParticipant,
       sourceCallIdNumber: {
         phoneNumber: process.env.ACS_RESOURCE_PHONE_NUMBER || "",
       },

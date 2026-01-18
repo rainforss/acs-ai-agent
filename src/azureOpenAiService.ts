@@ -44,12 +44,16 @@ export async function sendAudioToExternalAi(data: string) {
 export async function startConversation(
   conversationId: string,
   acsClient: CallAutomationClient,
+  customerFirstName?: string,
+  customerPrompt?: string,
 ) {
   await startRealtime(
     aiFoundryVoiceLiveEndpoint,
     aiFoundryKey,
     conversationId,
     acsClient,
+    customerFirstName,
+    customerPrompt,
   );
 }
 
@@ -58,6 +62,8 @@ async function startRealtime(
   apiKey: string,
   conversationId: string,
   acsClient: CallAutomationClient,
+  customerFirstName?: string,
+  customerPrompt?: string,
 ) {
   try {
     realtimeStreaming = new VoiceLiveClient(
@@ -67,8 +73,11 @@ async function startRealtime(
       ),
       apiKey,
     );
-    const initiationMessage =
-      "You are a helpful, friendly, and knowledgeable virtual assistant for Bath Fitter, a company specializing in custom bath and shower remodeling. You are talking to a customer named Jake, greet the customer in English and ask if the customer needs any help.";
+    const agentRoleDescription =
+      "You are a helpful, friendly, and knowledgeable virtual assistant for Bath Fitter, a company specializing in custom bath and shower remodeling.";
+    const initiationMessage = customerPrompt
+      ? `${agentRoleDescription} You are talking to a customer named ${customerFirstName}. ${customerPrompt}`
+      : `${agentRoleDescription} ${customerFirstName ? `You are talking to a customer named ${customerFirstName}` : ""}. Greet the customer in English and ask if the customer needs any help.`;
     await realtimeStreaming.send(createConfigMessage());
     await realtimeStreaming.send(createResponseMessage(initiationMessage));
   } catch (error) {

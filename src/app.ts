@@ -28,6 +28,8 @@ const server = http.createServer(app);
 let acsClient: CallAutomationClient;
 let answerCallResult: AnswerCallResult;
 let callerId: string;
+let customerFirstName: string;
+let customerPrompt: string;
 
 async function createAcsClient() {
   const connectionString = process.env.CONNECTION_STRING || "";
@@ -66,7 +68,10 @@ async function createOutboundCall(callee, mediaStreamingOptions) {
 app.post("/api/outboundCall", async (req: any, res: any) => {
   try {
     console.log(req.body);
-    const { callee } = req.body;
+    const { PhoneNumber, FirstName, Prompt } = req.body;
+    customerFirstName = FirstName;
+    customerPrompt = Prompt;
+
     const websocketUrl = (
       process.env.NODE_ENV === "production"
         ? process.env.CALLBACK_URI_PROD
@@ -81,7 +86,7 @@ app.post("/api/outboundCall", async (req: any, res: any) => {
       enableBidirectional: true,
       audioFormat: "Pcm24KMono",
     };
-    await createOutboundCall(callee, mediaStreamingOptions);
+    await createOutboundCall(PhoneNumber, mediaStreamingOptions);
     res.sendStatus(204);
   } catch (e) {
     console.log(e.message);
@@ -222,6 +227,8 @@ wss.on("connection", async (ws: WebSocket) => {
   await startConversation(
     answerCallResult.callConnectionProperties.callConnectionId,
     acsClient,
+    customerFirstName,
+    customerPrompt,
   );
   ws.on("message", async (packetData: ArrayBuffer) => {
     try {

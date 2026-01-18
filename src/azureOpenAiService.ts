@@ -355,6 +355,13 @@ export async function handleRealtimeMessages(
           const httpsAgent = new https.Agent({
             rejectUnauthorized: false,
           });
+          await realtimeStreaming.send(
+            createConversationItem(
+              "I am booking the appointment for you and this will take just a moment. Thank you for your patience.",
+              conversationId,
+              "assistant",
+            ),
+          );
           const response = await fetch(
             "https://03f8d831c688efbd8b1974fd770e4c.f4.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/bcec5c21bc0d4795858e09b90a94d40b/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=gNN65YHpNEZ78JXT47xhOVGayDr4A1Pt9attnfRZUy4",
             {

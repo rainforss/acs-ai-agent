@@ -64,23 +64,31 @@ async function createOutboundCall(callee, mediaStreamingOptions) {
 }
 
 app.post("/api/outboundCall", async (req: any, res: any) => {
-  console.log(req.body);
-  const { callee } = req.body;
-  const websocketUrl = (
-    process.env.NODE_ENV === "production"
-      ? process.env.CALLBACK_URI_PROD
-      : process.env.CALLBACK_URI
-  ).replace(/^https:\/\//, "wss://");
-  const mediaStreamingOptions: MediaStreamingOptions = {
-    transportUrl: websocketUrl,
-    transportType: "websocket",
-    contentType: "audio",
-    audioChannelType: "unmixed",
-    startMediaStreaming: true,
-    enableBidirectional: true,
-    audioFormat: "Pcm24KMono",
-  };
-  await createOutboundCall(callee, mediaStreamingOptions);
+  try {
+    console.log(req.body);
+    const { callee } = req.body;
+    const websocketUrl = (
+      process.env.NODE_ENV === "production"
+        ? process.env.CALLBACK_URI_PROD
+        : process.env.CALLBACK_URI
+    ).replace(/^https:\/\//, "wss://");
+    const mediaStreamingOptions: MediaStreamingOptions = {
+      transportUrl: websocketUrl,
+      transportType: "websocket",
+      contentType: "audio",
+      audioChannelType: "unmixed",
+      startMediaStreaming: true,
+      enableBidirectional: true,
+      audioFormat: "Pcm24KMono",
+    };
+    await createOutboundCall(callee, mediaStreamingOptions);
+    res.sendStatus(204);
+  } catch (e) {
+    console.log(e.message);
+    res.status(500).json({
+      error: e.message,
+    });
+  }
 });
 
 app.post("/api/incomingCall", async (req: any, res: any) => {

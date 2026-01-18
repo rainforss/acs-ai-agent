@@ -51,7 +51,7 @@ async function createOutboundCall(callee, mediaStreamingOptions) {
       mediaStreamingOptions,
     };
     console.log("Placing outbound call...");
-    acsClient.createCall(
+    answerCallResult = await acsClient.createCall(
       callInvite,
       process.env.NODE_ENV === "production"
         ? process.env.CALLBACK_URI_PROD

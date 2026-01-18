@@ -43,13 +43,13 @@ export async function sendAudioToExternalAi(data: string) {
 
 export async function startConversation(
   conversationId: string,
-  acsClient: CallAutomationClient
+  acsClient: CallAutomationClient,
 ) {
   await startRealtime(
     aiFoundryVoiceLiveEndpoint,
     aiFoundryKey,
     conversationId,
-    acsClient
+    acsClient,
   );
 }
 
@@ -57,23 +57,20 @@ async function startRealtime(
   endpoint: string,
   apiKey: string,
   conversationId: string,
-  acsClient: CallAutomationClient
+  acsClient: CallAutomationClient,
 ) {
   try {
     realtimeStreaming = new VoiceLiveClient(
       new URL(
         endpoint +
-          `&model=${process.env.AI_MODEL_NAME}&agent-project-name=${process.env.AI_PROJECT_ID}`
+          `&model=${process.env.AI_MODEL_NAME}&agent-project-name=${process.env.AI_PROJECT_ID}`,
       ),
-      apiKey
+      apiKey,
     );
-    console.log("sending session config");
+    const initiationMessage =
+      "You are a helpful, friendly, and knowledgeable virtual assistant for Bath Fitter, a company specializing in custom bath and shower remodeling. You are talking to a customer named Jake, greet the customer in English and ask if the customer needs any help.";
     await realtimeStreaming.send(createConfigMessage());
-    await realtimeStreaming.send(
-      createResponseMessage(
-        "You are Gateway Mechanical Service's Virtual Assistant. Your job is to provide fast, accurate, and friendly answers to common member questions based on publicly available information on Gateway Mechanical Service's website. You are talking to a customer named Jake, greet the customer in English and ask if the customer needs any help."
-      )
-    );
+    await realtimeStreaming.send(createResponseMessage(initiationMessage));
   } catch (error) {
     console.error("Error during startRealtime:", error);
   }
@@ -101,7 +98,7 @@ function createResponseMessage(instructions): ResponseCreateMessage {
 function createConversationItem(
   text: string,
   conversationId: string,
-  role: "system" | "user" | "assistant"
+  role: "system" | "user" | "assistant",
 ): ItemCreateMessage {
   const message: any = {
     type: "conversation.item.create",
@@ -117,7 +114,7 @@ function createConversationItem(
 
 function createFunctionOutput(
   text: string,
-  conversationId: string
+  conversationId: string,
 ): ItemCreateMessage {
   const message: any = {
     type: "conversation.item.create",
@@ -144,7 +141,7 @@ function createConfigMessage(): SessionUpdateMessage {
             type: "string",
             format: "date-time",
             description:
-              "The preferred date and time for appointment, in ISO 8601 UTC format (e.g., 2025-10-26T09:00:00Z) after converting from user's time zone.",
+              "The preferred date and time for appointment, in ISO 8601 UTC format (e.g., 2025-10-26T09:00:00Z) after converting from user's time zone. Repeat the time in user's time zone for confirmation.",
           },
           mobilePhone: {
             type: "string",
@@ -189,28 +186,43 @@ function createConfigMessage(): SessionUpdateMessage {
   ];
   let configMessage: any = {
     instructions: `
-    You are a helpful and professional virtual assistant for Gateway Mechanical Services, a trusted provider of HVAC, refrigeration, and mechanical services across Western Canada. Your primary responsibilities are:
-
-Booking Appointments: Help customers schedule service appointments for maintenance, repairs, or consultations. Collect relevant details such as:
-
-Customer name and contact information
-Service location
-Type of service needed (e.g., HVAC repair, refrigeration maintenance)
-Preferred date and time
-
-
-Answering Questions: Provide clear, friendly, and accurate responses to customer inquiries about:
-
-Services offered
-Service areas and coverage
-Emergency support availability
-Pricing estimates (if available)
-Warranty and service guarantees
-
-
-Escalation and Handoff: If a question is too complex or requires human intervention, offer to escalate the request to a live representative or direct the customer to the appropriate contact channel.
-
-Maintain a courteous and professional tone at all times. Always confirm details with the customer and offer additional help before ending the conversation. You should avoid emotional expressions like laughter. You should speak slowly and clearly.
+    
+BathFitterAssistant:
+  role: "Virtual Assistant for Bath Fitter"
+  responsibilities:
+    - Booking Appointments:
+        description: "Assist customers in scheduling free in-home consultations."
+        required_information:
+          - name
+          - contact_details
+          - location
+          - preferred_date_time
+          - service_type
+        actions:
+          - confirm_appointment_details
+          - provide_follow_up_instructions
+    - Answering Questions:
+        description: "Provide accurate and friendly responses to customer inquiries."
+        topics:
+          - products
+          - services
+          - installation_process
+          - warranties
+          - pricing_estimates
+          - financing_options
+        escalation: "Refer to human representative if needed"
+  tone_and_style:
+    tone: "Warm, professional, and reassuring"
+    language: "Plain and customer-friendly"
+    avoid: "Technical jargon unless requested"
+  limitations:
+    - "Do not provide exact pricing without a consultation"
+    - "Do not guarantee installation timelines without checking availability"
+    - "Respect customer privacy and data security"
+  example_interactions:
+    - "Hi! I’d like to replace my old tub with a walk-in shower. Can you help me book a consultation?"
+    - "What’s the typical installation time for a Bath Fitter remodel?"
+    - "Do you offer financing options?"
     `,
     type: "session.update",
     session: {
@@ -242,7 +254,7 @@ Maintain a courteous and professional tone at all times. Always confirm details 
 
 export async function handleRealtimeMessages(
   conversationId: string,
-  acsClient?: CallAutomationClient
+  acsClient?: CallAutomationClient,
 ) {
   for await (const message of realtimeStreaming.messages()) {
     switch (message.type) {
@@ -256,7 +268,7 @@ export async function handleRealtimeMessages(
         break;
       case "input_audio_buffer.speech_started":
         console.log(
-          `Voice activity detection started at ${message.audio_start_ms} ms`
+          `Voice activity detection started at ${message.audio_start_ms} ms`,
         );
         stopAudio();
         break;
@@ -309,7 +321,7 @@ export async function handleRealtimeMessages(
                 function: "send_summary",
               }),
               agent: httpsAgent,
-            }
+            },
           );
           const data = await response.json();
           console.log(data);
@@ -318,13 +330,13 @@ export async function handleRealtimeMessages(
               createConversationItem(
                 "Summary has been sent to your email, is there anything else I can help you with?",
                 conversationId,
-                "assistant"
-              )
+                "assistant",
+              ),
             );
             await realtimeStreaming.send(
               createResponseMessage(
-                "Respond to the user that summary has been sent successfully. Be concise and friendly, ask the user if there is anything else that you can help with."
-              )
+                "Respond to the user that summary has been sent successfully. Be concise and friendly, ask the user if there is anything else that you can help with.",
+              ),
             );
           }
         }
@@ -350,7 +362,7 @@ export async function handleRealtimeMessages(
               },
               body: message.arguments,
               agent: httpsAgent,
-            }
+            },
           );
           const data = await response.json();
           console.log(data);
@@ -359,13 +371,13 @@ export async function handleRealtimeMessages(
               createConversationItem(
                 "Appointment has been booked, is there anything else I can help you with?",
                 conversationId,
-                "assistant"
-              )
+                "assistant",
+              ),
             );
             await realtimeStreaming.send(
               createResponseMessage(
-                "Respond to the user that appointment has been booked successfully. Be concise and friendly, ask the user if there is anything else that you can help with."
-              )
+                "Respond to the user that appointment has been booked successfully. Be concise and friendly, ask the user if there is anything else that you can help with.",
+              ),
             );
           }
         }
@@ -373,7 +385,7 @@ export async function handleRealtimeMessages(
         console.log(
           "Conversation item created: ",
           message.type,
-          message.event_id
+          message.event_id,
         );
       default:
         break;

@@ -35,31 +35,47 @@ async function createAcsClient() {
 }
 
 async function createOutboundCall(callee, mediaStreamingOptions) {
-  const callInvite: CallInvite = {
-    targetParticipant: callee,
-    sourceCallIdNumber: {
-      phoneNumber: process.env.ACS_RESOURCE_PHONE_NUMBER || "",
-    },
-  };
+  try {
+    const callInvite: CallInvite = {
+      targetParticipant: callee,
+      sourceCallIdNumber: {
+        phoneNumber: process.env.ACS_RESOURCE_PHONE_NUMBER || "",
+      },
+    };
 
-  const options: CreateCallOptions = {
-    callIntelligenceOptions: {
-      cognitiveServicesEndpoint: process.env.COGNITIVE_SERVICES_ENDPOINT,
-    },
-    mediaStreamingOptions,
-  };
-  console.log("Placing outbound call...");
-  acsClient.createCall(
-    callInvite,
-    process.env.NODE_ENV === "production"
-      ? process.env.CALLBACK_URI_PROD
-      : process.env.CALLBACK_URI + "/api/callbacks",
-    options
-  );
+    const options: CreateCallOptions = {
+      mediaStreamingOptions,
+    };
+    console.log("Placing outbound call...");
+    acsClient.createCall(
+      callInvite,
+      process.env.NODE_ENV === "production"
+        ? process.env.CALLBACK_URI_PROD
+        : process.env.CALLBACK_URI + "/api/callbacks",
+      options,
+    );
+  } catch (e) {
+    console.log(e.message);
+  }
 }
 
 app.post("/api/outboundCall", async (req: any, res: any) => {
   const { callee } = req.body;
+  const websocketUrl = (
+    process.env.NODE_ENV === "production"
+      ? process.env.CALLBACK_URI_PROD
+      : process.env.CALLBACK_URI
+  ).replace(/^https:\/\//, "wss://");
+  const mediaStreamingOptions: MediaStreamingOptions = {
+    transportUrl: websocketUrl,
+    transportType: "websocket",
+    contentType: "audio",
+    audioChannelType: "unmixed",
+    startMediaStreaming: true,
+    enableBidirectional: true,
+    audioFormat: "Pcm24KMono",
+  };
+  await createOutboundCall(callee, mediaStreamingOptions);
 });
 
 app.post("/api/incomingCall", async (req: any, res: any) => {
@@ -107,11 +123,11 @@ app.post("/api/incomingCall", async (req: any, res: any) => {
     answerCallResult = await acsClient.answerCall(
       incomingCallContext,
       callbackUri,
-      answerCallOptions
+      answerCallOptions,
     );
 
     console.log(
-      `Answer call ConnectionId:--> ${answerCallResult.callConnectionProperties.callConnectionId} ${answerCallResult.callConnectionProperties.answeredby.communicationUserId}`
+      `Answer call ConnectionId:--> ${answerCallResult.callConnectionProperties.callConnectionId} ${answerCallResult.callConnectionProperties.answeredby.communicationUserId}`,
     );
   } catch (error) {
     console.error("Error during the incoming call event.", error);
@@ -123,7 +139,7 @@ app.post("/api/callbacks/:contextId", async (req: any, res: any) => {
   const eventData = event.data;
   const callConnectionId = eventData.callConnectionId;
   console.log(
-    `Received Event:-> ${event.type}, Correlation Id:-> ${eventData.correlationId}, CallConnectionId:-> ${callConnectionId}`
+    `Received Event:-> ${event.type}, Correlation Id:-> ${eventData.correlationId}, CallConnectionId:-> ${callConnectionId}`,
   );
   if (event.type === "Microsoft.Communication.CallConnected") {
     if (eventData.operationContext === "stopMediaStreaming") {
@@ -136,41 +152,41 @@ app.post("/api/callbacks/:contextId", async (req: any, res: any) => {
       callConnectionProperties.mediaStreamingSubscription;
     console.log(
       "MediaStreamingSubscription:-->" +
-        JSON.stringify(mediaStreamingSubscription)
+        JSON.stringify(mediaStreamingSubscription),
     );
   } else if (event.type === "Microsoft.Communication.MediaStreamingStarted") {
     console.log(`Operation context:--> ${eventData.operationContext}`);
     console.log(
-      `Media streaming content type:--> ${eventData.mediaStreamingUpdate.contentType}`
+      `Media streaming content type:--> ${eventData.mediaStreamingUpdate.contentType}`,
     );
     console.log(
-      `Media streaming status:--> ${eventData.mediaStreamingUpdate.mediaStreamingStatus}`
+      `Media streaming status:--> ${eventData.mediaStreamingUpdate.mediaStreamingStatus}`,
     );
     console.log(
-      `Media streaming status details:--> ${eventData.mediaStreamingUpdate.mediaStreamingStatusDetails}`
+      `Media streaming status details:--> ${eventData.mediaStreamingUpdate.mediaStreamingStatusDetails}`,
     );
   } else if (event.type === "Microsoft.Communication.MediaStreamingStopped") {
     console.log(`Operation context:--> ${eventData.operationContext}`);
     console.log(
-      `Media streaming content type:--> ${eventData.mediaStreamingUpdate.contentType}`
+      `Media streaming content type:--> ${eventData.mediaStreamingUpdate.contentType}`,
     );
     console.log(
-      `Media streaming status:--> ${eventData.mediaStreamingUpdate.mediaStreamingStatus}`
+      `Media streaming status:--> ${eventData.mediaStreamingUpdate.mediaStreamingStatus}`,
     );
     console.log(
-      `Media streaming status details:--> ${eventData.mediaStreamingUpdate.mediaStreamingStatusDetails}`
+      `Media streaming status details:--> ${eventData.mediaStreamingUpdate.mediaStreamingStatusDetails}`,
     );
   } else if (event.type === "Microsoft.Communication.MediaStreamingFailed") {
     console.log(`Operation context:--> ${eventData.operationContext}`);
     console.log(
-      `Code:->${eventData.resultInformation.code}, Subcode:->${eventData.resultInformation.subCode}`
+      `Code:->${eventData.resultInformation.code}, Subcode:->${eventData.resultInformation.subCode}`,
     );
     console.log(`Message:->${eventData.resultInformation.message}`);
   } else if (event.type === "Microsoft.Communication.CallDisconnected") {
     console.log(`Call Disconnected:->${eventData.resultInformation.message} `);
   } else if (event.type === "Microsoft.Communication.AddParticipantFailed") {
     console.log(
-      `Add Participant Failed:->${eventData.resultInformation.message} `
+      `Add Participant Failed:->${eventData.resultInformation.message} `,
     );
   }
 });
@@ -192,7 +208,7 @@ wss.on("connection", async (ws: WebSocket) => {
   await initWebsocket(ws);
   await startConversation(
     answerCallResult.callConnectionProperties.callConnectionId,
-    acsClient
+    acsClient,
   );
   ws.on("message", async (packetData: ArrayBuffer) => {
     try {

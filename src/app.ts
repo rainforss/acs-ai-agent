@@ -60,6 +60,7 @@ async function createOutboundCall(callee, mediaStreamingOptions) {
 }
 
 app.post("/api/outboundCall", async (req: any, res: any) => {
+  console.log(req.body);
   const { callee } = req.body;
   const websocketUrl = (
     process.env.NODE_ENV === "production"

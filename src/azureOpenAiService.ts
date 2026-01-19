@@ -143,7 +143,7 @@ function createConfigMessage(customerName?: string): SessionUpdateMessage {
       type: "function",
       name: "book_appointment",
       description:
-        "Book a branch appointment with date and time in a specific time zone for the user, using user's phone number. Ask user to confirm the appointment time and phone number before calling the function.",
+        "Book a branch appointment with date and time in a specific time zone for the user, using user's phone number. Ask user to confirm the appointment time in user's time zone and phone number before calling the function.",
       parameters: {
         type: "object",
         properties: {

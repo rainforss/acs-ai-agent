@@ -449,11 +449,11 @@ export async function handleRealtimeMessages(
             //     "assistant",
             //   ),
             // );
-            await realtimeStreaming.send(
-              createResponseMessage(
-                "Respond to the user that summary has been sent successfully. Be concise and friendly, ask the user if there is anything else that you can help with.",
-              ),
-            );
+            // await realtimeStreaming.send(
+            //   createResponseMessage(
+            //     "Respond to the user that summary has been sent successfully. Be concise and friendly, ask the user if there is anything else that you can help with.",
+            //   ),
+            // );
           }
         }
 
@@ -470,13 +470,13 @@ export async function handleRealtimeMessages(
             rejectUnauthorized: false,
           });
 
-          await realtimeStreaming.send(
-            createConversationItem(
-              "I am booking the appointment for you and this will take just a moment. Thank you for your patience.",
-              conversationId,
-              "assistant",
-            ),
-          );
+          // await realtimeStreaming.send(
+          //   createConversationItem(
+          //     "I am booking the appointment for you and this will take just a moment. Thank you for your patience.",
+          //     conversationId,
+          //     "assistant",
+          //   ),
+          // );
           await realtimeStreaming.send(
             createResponseMessage(
               "Respond to user that you are entering the appointment into system, thank the user for the patience.",

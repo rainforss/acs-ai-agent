@@ -387,8 +387,10 @@ export async function handleRealtimeMessages(
       case "response.function_call_arguments.done":
         console.log("Function arguments: ", message.arguments);
         await realtimeStreaming.send(
-          createResponseMessage(
-            "Respond to user that you are processing the request and it'll take some time, thank the user for the patience.",
+          createConversationItem(
+            "I am processing the request and this will take just a moment. Thank you for your patience.",
+            conversationId,
+            "assistant",
           ),
         );
 
@@ -493,13 +495,13 @@ export async function handleRealtimeMessages(
           const data = await response.json();
           console.log(data);
           if (data.success) {
-            await realtimeStreaming.send(
-              createConversationItem(
-                "Appointment has been booked, is there anything else I can help you with?",
-                conversationId,
-                "assistant",
-              ),
-            );
+            // await realtimeStreaming.send(
+            //   createConversationItem(
+            //     "Appointment has been booked, is there anything else I can help you with?",
+            //     conversationId,
+            //     "assistant",
+            //   ),
+            // );
             await realtimeStreaming.send(
               createResponseMessage(
                 "Respond to the user that appointment has been booked successfully. Be concise and friendly, ask the user if there is anything else that you can help with.",

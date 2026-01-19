@@ -413,13 +413,13 @@ export async function handleRealtimeMessages(
           const httpsAgent = new https.Agent({
             rejectUnauthorized: false,
           });
-          await realtimeStreaming.send(
-            createConversationItem(
-              "I am sending the summary to you and this will take just a moment. Thank you for your patience.",
-              conversationId,
-              "assistant",
-            ),
-          );
+          // await realtimeStreaming.send(
+          //   createConversationItem(
+          //     "I am sending the summary to you and this will take just a moment. Thank you for your patience.",
+          //     conversationId,
+          //     "assistant",
+          //   ),
+          // );
           await realtimeStreaming.send(
             createResponseMessage(
               "Respond to user that you are sending the summary through email, thank the user for the patience.",
@@ -442,13 +442,13 @@ export async function handleRealtimeMessages(
           const data = await response.json();
           console.log(data);
           if (data.success) {
-            await realtimeStreaming.send(
-              createConversationItem(
-                "Summary has been sent to your email, is there anything else I can help you with?",
-                conversationId,
-                "assistant",
-              ),
-            );
+            // await realtimeStreaming.send(
+            //   createConversationItem(
+            //     "Summary has been sent to your email, is there anything else I can help you with?",
+            //     conversationId,
+            //     "assistant",
+            //   ),
+            // );
             await realtimeStreaming.send(
               createResponseMessage(
                 "Respond to the user that summary has been sent successfully. Be concise and friendly, ask the user if there is anything else that you can help with.",

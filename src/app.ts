@@ -98,6 +98,8 @@ app.post("/api/outboundCall", async (req: any, res: any) => {
 
 app.post("/api/incomingCall", async (req: any, res: any) => {
   const event = req.body[0];
+  customerFirstName = null;
+  customerPrompt = null;
   try {
     const eventData = event.data;
     if (event.eventType === "Microsoft.EventGrid.SubscriptionValidationEvent") {

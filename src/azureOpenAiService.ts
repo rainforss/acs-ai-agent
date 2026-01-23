@@ -74,12 +74,12 @@ async function startRealtime(
       apiKey,
     );
     const agentRoleDescription = customerFirstName
-      ? "You are a helpful, friendly, and knowledgeable virtual assistant for Bath Fitter, a company specializing in custom bath and shower remodeling."
-      : "You are a helpful, friendly, and knowledgeable virtual assistant for BFL Canada.";
+      ? `You are a helpful, friendly, and knowledgeable virtual assistant for ${process.env.OUTBOUND_CALL_COMPANY_NAME}, ${process.env.OUTBOUND_CALL_COMPANY_DESC}.`
+      : `You are a helpful, friendly, and knowledgeable virtual assistant for ${process.env.INBOUND_CALL_COMPANY_NAME}, ${process.env.INBOUND_CALL_COMPANY_DESC}.`;
     const initiationMessage = customerPrompt
       ? `${agentRoleDescription} You are talking to a customer named ${customerFirstName}. ${customerPrompt}`
       : `${agentRoleDescription} ${customerFirstName ? `You are talking to a customer named ${customerFirstName}.` : ""} Greet the customer in English and ask if the customer needs any help.`;
-    await realtimeStreaming.send(createConfigMessage());
+    await realtimeStreaming.send(createconfigMessage());
     await realtimeStreaming.send(createResponseMessage(initiationMessage));
   } catch (error) {
     console.error("Error during startRealtime:", error);
@@ -137,7 +137,7 @@ function createFunctionOutput(
   return message;
 }
 
-function createConfigMessage(customerName?: string): SessionUpdateMessage {
+function createconfigMessage(customerName?: string): SessionUpdateMessage {
   const functions = [
     {
       type: "function",
@@ -194,7 +194,9 @@ function createConfigMessage(customerName?: string): SessionUpdateMessage {
     //   parameters: {},
     // },
   ];
-  const bflInstruction: string = `
+  const inboundInstruction: string =
+    process.env.INBOUND_INSTRUCTION ??
+    `
   You are BFL CANADA Virtual Assistant, a helpful, concise insurance brokerage assistant for Canada-based visitors. Your job is to:
 - Help people understand BFL CANADA’s services and locations.
 - Help them start a booking with a BFL advisor (preliminary risk assessment) or connect them with the right office.
@@ -211,11 +213,10 @@ BEHAVIOUR
 - If you’re unsure, say so briefly and direct the user to the Contact page.
 - Keep replies under 120 words unless the user asks for more detail.
   `;
-  let configMessage: any = {
-    instructions: customerName
-      ? `
-You are a helpful, friendly, and knowledgeable virtual assistant for Bath Fitter, a company specializing in custom bath and shower remodeling. Your primary responsibilities are:
-
+  const outboundInstruction: string =
+    process.env.OUTBOUND_INSTRUCTION ??
+    `
+  You are a helpful, friendly, and knowledgeable virtual assistant for Bath Fitter, a company specializing in custom bath and shower remodeling. Your primary responsibilities are:
 
 Booking Appointments:
 
@@ -223,14 +224,10 @@ Help customers schedule free in-home consultations.
 Collect necessary information such as name, contact details, location, preferred dates/times, and type of service (e.g., bathtub replacement, shower conversion).
 Confirm appointment details and provide follow-up instructions.
 
-
-
 Answering Questions:
 
 Provide clear, accurate, and concise answers about Bath Fitter’s products, services, installation process, warranties, pricing estimates, and financing options.
 Direct customers to appropriate resources or escalate to a human representative when needed.
-
-
 
 Tone and Style:
 
@@ -238,23 +235,20 @@ Be warm, professional, and reassuring.
 Use plain language and avoid technical jargon unless requested.
 Always aim to make the customer feel heard and supported.
 
-
-
 Limitations:
 
 Do not provide exact pricing without a consultation.
 Do not make guarantees about installation timelines without checking availability.
 Always respect customer privacy and data security.
 
-
-
 Example interactions:
 
 “Hi! I’d like to replace my old tub with a walk-in shower. Can you help me book a consultation?”
 “What’s the typical installation time for a Bath Fitter remodel?”
 “Do you offer financing options?”
-    `
-      : bflInstruction,
+  `;
+  let configMessage: any = {
+    instructions: customerName ? outboundInstruction : inboundInstruction,
     type: "session.update",
     session: {
       turn_detection: {
@@ -372,18 +366,18 @@ export async function handleRealtimeMessages(
           const data = await response.json();
           console.log(data);
           if (data.success) {
-            // await realtimeStreaming.send(
-            //   createConversationItem(
-            //     "Summary has been sent to your email, is there anything else I can help you with?",
-            //     conversationId,
-            //     "assistant",
-            //   ),
-            // );
-            // await realtimeStreaming.send(
-            //   createResponseMessage(
-            //     "Respond to the user that summary has been sent successfully. Be concise and friendly, ask the user if there is anything else that you can help with.",
-            //   ),
-            // );
+            await realtimeStreaming.send(
+              createConversationItem(
+                "Summary has been sent to your email, is there anything else I can help you with?",
+                conversationId,
+                "assistant",
+              ),
+            );
+            await realtimeStreaming.send(
+              createResponseMessage(
+                "Respond to the user that summary has been sent successfully. Be concise and friendly, ask the user if there is anything else that you can help with.",
+              ),
+            );
           }
         }
 
